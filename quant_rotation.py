@@ -14,7 +14,10 @@ def build_hadamard(
     dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor:
 
-    cache_key = (size, str(device), dtype)
+    dev = torch.device(device)
+    if dev.type == "cuda" and dev.index is None:
+        dev = torch.device("cuda", torch.cuda.current_device())
+    cache_key = (size, str(dev), dtype)
     if cache_key in _HADAMARD_CACHE:
         return _HADAMARD_CACHE[cache_key]
 
@@ -26,7 +29,7 @@ def build_hadamard(
 
     H4 = torch.tensor(
         [[1, 1, 1, -1], [1, 1, -1, 1], [1, -1, 1, 1], [-1, 1, 1, 1]],
-        dtype=dtype, device=device,
+        dtype=dtype, device=dev,
     )
 
     H = H4

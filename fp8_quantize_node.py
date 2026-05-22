@@ -245,6 +245,10 @@ def _make_fp8_linear_forward(module: nn.Linear):
         bf = getattr(module, 'bias_function', [])
         if len(wf) > 0 or len(bf) > 0:
             # Bug fix: use getattr in loops to avoid AttributeError when only one function list is set
+            # Cache scale to GPU on first LoRA forward to avoid repeated CPU→GPU copies
+            _s = module._forge_weight_scale
+            if isinstance(_s, torch.Tensor) and _s.device != x.device:
+                module._forge_weight_scale = _s.to(device=x.device)
             w = module.weight.to(device=x.device, dtype=module._forge_orig_dtype) * module._forge_weight_scale.to(device=x.device)
             for f in wf:
                 w = f(w)
@@ -279,7 +283,11 @@ def _make_int8_linear_forward(module: nn.Linear, use_triton: bool):
         if len(wf) > 0 or len(bf) > 0:
             # Dequantize INT8 → same dtype as input (bf16/fp16)，避免 float32 中间张量
             # module.weight 即 INT8 权重，无需单独的 _forge_quant_weight
-            w = module.weight.to(device=x.device, dtype=x.dtype) * module._forge_weight_scale.to(device=x.device, dtype=x.dtype)
+            # Cache scale to GPU on first LoRA forward to avoid repeated CPU→GPU copies
+            _s = module._forge_weight_scale
+            if isinstance(_s, torch.Tensor) and _s.device != x.device:
+                module._forge_weight_scale = _s.to(device=x.device)
+            w = module.weight.to(device=x.device, dtype=x.dtype) * module._forge_weight_scale.to(dtype=x.dtype)
 
             if getattr(module, "_use_hadamard", False):
                 # Note: module.weight (INT8) stores the ALREADY-ROTATED weight (W @ H^T).
@@ -352,7 +360,7 @@ if _BNB_AVAILABLE:
             w = w.to(device=x.device, dtype=x.dtype)
 
             # Apply LoRA delta if patched in-place on the dummy weight
-            if hasattr(module, "weight") and module.weight is not None:
+            if hasattr(module, "weight") and module.weight is not None and module.weight.any():
                 w = w + module.weight.to(device=x.device, dtype=x.dtype)
 
             for f in getattr(module, 'weight_function', []):
@@ -424,7 +432,7 @@ def _restore_quantized_weight(module: nn.Module) -> "torch.Tensor | None":
         w = module.weight
         s = getattr(module, "_forge_weight_scale", None)
         if s is not None:
-            w = w.float() * s if (s.dim() == 0 or isinstance(s, float)) else _int8_dequant(w, s)
+            w = w.float() * s if s.dim() == 0 else _int8_dequant(w, s)
         module._forge_weight_scale = None
         module._forge_layout_type = None
         module._forge_orig_dtype = None
@@ -437,6 +445,15 @@ def _restore_quantized_weight(module: nn.Module) -> "torch.Tensor | None":
         w = module.weight
         s = module._forge_weight_scale
         result = _int8_dequant(w.to(s.device), s).to(orig_dtype)
+        # Undo Hadamard rotation to recover the original (unrotated) weight
+        if getattr(module, "_use_hadamard", False) and _HADAMARD_AVAILABLE:
+            gs = module._hadamard_group_size
+            H = build_hadamard(gs, device=result.device, dtype=result.dtype)
+            result = rotate_weight(result, H, gs)  # (W@H) @ H = W (since H²=I)
+        if hasattr(module, "_use_hadamard"):
+            delattr(module, "_use_hadamard")
+        if hasattr(module, "_hadamard_group_size"):
+            delattr(module, "_hadamard_group_size")
         module._forge_weight_scale = None
         module._forge_orig_dtype = None
         if hasattr(module, "_forge_int8_w_t"):
@@ -546,13 +563,16 @@ def _is_already_quantized(module: nn.Module) -> bool:
         return True
     if _BNB_AVAILABLE and hasattr(module, "_forge_weight_quant_state") and module._forge_weight_quant_state is not None:
         return True
-    if _BNB_AVAILABLE and isinstance(module.weight, Params4bit):
+    w = getattr(module, "weight", None)
+    if w is None:
+        return False
+    if _BNB_AVAILABLE and isinstance(w, Params4bit):
         return True
     if _DTYPE_MAP:
         for d in _DTYPE_MAP.values():
-            if module.weight.dtype == d:
+            if w.dtype == d:
                 return True
-    if module.weight.dtype == torch.int8:
+    if w.dtype == torch.int8:
         return True
     return False
 
@@ -766,6 +786,7 @@ class Fp8CheckpointLoader:
 
         if is_bnb:
             print(f"[Fp8CheckpointLoader] Loading model in default format before BNB quantization...")
+            original_shapes = {}
         else:
             print(f"[Fp8CheckpointLoader] Quantization processing device: {device}")
 

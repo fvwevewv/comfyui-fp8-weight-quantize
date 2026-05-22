@@ -35,7 +35,7 @@ def _quantize_rowwise_kernel(
     offsets = tl.arange(0, BLOCK_SIZE)
     mask = offsets < n_elements
 
-    x = tl.load(x_row_ptr + offsets, mask=mask, other=0.0)
+    x = tl.load(x_row_ptr + offsets, mask=mask, other=0)
 
     abs_x = tl.abs(x)
 
@@ -45,10 +45,14 @@ def _quantize_rowwise_kernel(
 
     q_f = x / scale
 
-    q_i = libdevice.rint(q_f).to(tl.int32)
-    q_i = tl.clamp(q_i, -128.0, 127.0)
+    # Round to nearest integer (returns float)
+    q_r = libdevice.rint(q_f)
+    # Clamp in floating point space since Triton tl.clamp only supports floating point types
+    q_c = tl.clamp(q_r, -128.0, 127.0)
+    # Convert directly to int8
+    q_i = q_c.to(tl.int8)
 
-    tl.store(y_row_ptr + offsets, q_i.to(tl.int8), mask=mask)
+    tl.store(y_row_ptr + offsets, q_i, mask=mask)
     tl.store(s_ptr + row_idx, scale.to(tl.float32))
 
 
@@ -125,8 +129,8 @@ def _int8_matmul_dequant_kernel(
     accumulator = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.int32)
 
     for k in range(0, tl.cdiv(K, BLOCK_K)):
-        a = tl.load(a_ptrs, mask=offs_k[None, :] < K - k * BLOCK_K, other=0.0)
-        b = tl.load(b_ptrs, mask=offs_k[:, None] < K - k * BLOCK_K, other=0.0)
+        a = tl.load(a_ptrs, mask=offs_k[None, :] < K - k * BLOCK_K, other=0)
+        b = tl.load(b_ptrs, mask=offs_k[:, None] < K - k * BLOCK_K, other=0)
         accumulator += tl.dot(a, b)
         a_ptrs += BLOCK_K * stride_ak
         b_ptrs += BLOCK_K * stride_bk
@@ -252,8 +256,8 @@ def _int8_matmul_dequant_per_row_kernel(
     accumulator = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.int32)
 
     for k in range(0, tl.cdiv(K, BLOCK_K)):
-        a = tl.load(a_ptrs, mask=offs_k[None, :] < K - k * BLOCK_K, other=0.0)
-        b = tl.load(b_ptrs, mask=offs_k[:, None] < K - k * BLOCK_K, other=0.0)
+        a = tl.load(a_ptrs, mask=offs_k[None, :] < K - k * BLOCK_K, other=0)
+        b = tl.load(b_ptrs, mask=offs_k[:, None] < K - k * BLOCK_K, other=0)
         accumulator += tl.dot(a, b)
         a_ptrs += BLOCK_K * stride_ak
         b_ptrs += BLOCK_K * stride_bk
