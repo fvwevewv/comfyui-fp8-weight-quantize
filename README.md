@@ -34,7 +34,7 @@
 
 ### 1. 💾 FP8 Checkpoint Loader (混合精度加载器)
 
-该节点在 Checkpoint 加载的 `state_dict` 阶段进行元数据注入与就地量化，由 ComfyUI 原生的 `MixedPrecisionOps` 接管，从而优化运行效率。
+该节点在 Checkpoint 加载的 `state_dict` 阶段进行元数据注入与量化，量化后由 ComfyUI 原生的 `MixedPrecisionOps` 接管，从而优化运行效率。
 
 * **参数配置**：
   - `ckpt_name`：选择需要加载的 Checkpoint 或 Diffusion 模型。
