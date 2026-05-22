@@ -1,6 +1,6 @@
 # ComfyUI FP8 Weight Quantization & Mixed-Precision Loaders
 
-本项目为 ComfyUI 扩散模型（Diffusion Models）开发的权重量化与混合精度加载套件。提供原生混合精度管线、基于 BitsAndBytes 的后量化以及 GPU 优化的随机舍入（Stochastic Rounding）算法支持，旨在降低模型推理时的显存开销并优化访存效率。
+为 ComfyUI 开发的权重量化与混合精度加载套件。提供基于原生的量化(comfy.quant_ops与comfy_kitchen)、基于 BitsAndBytes 的量化,以及使用随机舍入（Stochastic Rounding）,scale,Hadamard旋转(int8)方法旨在降低模型推理时的显存开销并优化访存效率。
 
 ---
 
