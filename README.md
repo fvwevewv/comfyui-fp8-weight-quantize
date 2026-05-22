@@ -7,7 +7,7 @@
 ## 核心特性
 
 - **原生混合精度加载 (Native Mixed Precision)**：基于 ComfyUI 原生 `comfy.quant_ops` 及 `comfy_kitchen` C++ / CUDA 后端，支持多精度就地量化与动态直接加载。
-- **GPU 随机舍入 (Stochastic Rounding)**：针对原生 FP8/FP4 格式实现 GPU 随机舍入，通过注入确定性伪随机噪声降低量化带来的精度损失，在极低精度下维持原有模型的细节还原度。
+- **随机舍入 (Stochastic Rounding)**：针对原生 FP8/FP4 格式实现随机舍入，通过注入确定性伪随机噪声降低量化带来的精度损失，在极低精度下维持原有模型的细节还原度。
 - **哈达玛旋转 (Hadamard Transform)**：针对 INT8 (W8A16) 精度实现正交变换，通过打散权重与激活值中的通道极值（Outliers），抑制量化导致的偏色与噪声，提高量化后模型的数值稳定性。
 - **敏感层保护机制**：自动检测并旁路（Bypass）`adaln`、`modulation`、`norm`、`embed` 以及部分早期敏感网络层（如 Safe Blocks），避免敏感参数被过度量化导致推理异常。
 - **UNet 内存排布优化**：针对标准 UNet 架构自动启用 `channels_last` (NHWC) 排布，减少访存带宽开销并提升张量计算效率。
