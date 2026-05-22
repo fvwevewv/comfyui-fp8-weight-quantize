@@ -62,7 +62,7 @@
   - `model`：接入已加载的 MODEL。
   - `backend` (推理后端)：
     - `PyTorch (torch._int_mm)`：使用 PyTorch 原生的 INT8 矩阵乘法，兼容所有主流 CUDA 环境，无需安装额外库。
-    - `Triton`：使用 Triton 实现的自定义 GEMM 内核进行 INT8 乘法，推理速度更快，但需要comfyui安装 `triton` 并仅支持 NVIDIA GPU。
+    - `Triton`：使用 Triton 实现的自定义 GEMM 内核进行 INT8 乘法，推理速度更快，但需要ComfyUI安装 `triton` 并仅支持 NVIDIA GPU。
   - `skip_sensitive` (`True` / `False`)：保护敏感层不被量化。
   - `allow_compile` (`False` / `True`)：启用 `torch.compile` 兼容模式。
 * **技术原理（哈达玛旋转）**：
@@ -83,7 +83,7 @@
 
 ### Anima (DiT 架构)
 - **精度模式**：`float8_e4m3fn``int8+triton`
-- **推理速度**：从 **`2.0 s/it`** 缩短至 **`1.68 s/it(fp8)1.47s/it(int8+triton)`**（推理耗时最大减少约 **16%**）
+- **推理速度**：从 **`2.0 s/it`** 缩短至 **`1.68 s/it(fp8)1.47s/it(int8+triton)`**（推理耗时最大减少约 **23.5%**）
 - **推理显存 (VRAM)**：**`5.2 GB`**
 ---
 
