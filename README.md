@@ -28,7 +28,7 @@
 
 > [!NOTE]
 > - 原生 `nvfp4` 或 `mxfp8` 精度需要较新版本的 ComfyUI 且正确安装了 `comfy_kitchen` 。
-> - 使用 `bnb-nf4` 后量化需要系统已安装 `bitsandbytes` 包。
+> - 使用 `bnb-nf4` 后量化需要ComfyUI已安装 `bitsandbytes` 包。
 
 ---
 
